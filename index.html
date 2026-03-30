@@ -327,7 +327,7 @@ const SCHED={
 // ══════════════════════════════════════════════════════════
 const S={
   cycle:'1',collapse:false,tab:'today',
-  open:{},checks:{},vals:{},ytLinks:{},sensations:{},
+  open:{},checks:{},vals:{},ytLinks:{},sensations:{},ytEditing:null,
   // Analytics sample data
   history:[
     {date:'Sem 1',pushW:60,pullW:50,lowerW:120,pftPush:35,pftSquat:50,pftAbs:45,pftBar:8,runPace:6.2},
@@ -610,12 +610,24 @@ function renderChecks(key,count){
 function ytCell(id){
   const val=S.ytLinks[id]||'';
   const hasLink=val.length>5;
+  const isEditing=S.ytEditing===id;
+  if(hasLink&&!isEditing){
+    return `<div style="min-width:32px;display:flex;align-items:center;gap:4px">
+      <a href="${val}" target="_blank" style="color:var(--yt);font-size:16px;text-decoration:none" title="Ver video" onclick="event.stopPropagation()">▶</a>
+      <div style="font-size:9px;color:var(--t3);cursor:pointer" onclick="event.stopPropagation();S.ytLinks['${id}']='';saveState();R()">✕</div>
+    </div>`;
+  }
+  if(isEditing){
+    return `<div style="min-width:140px" onclick="event.stopPropagation()">
+      <input class="inp" style="width:120px;font-size:10px;color:var(--mid);text-align:left" placeholder="Pega URL..." id="yt-inp-${id}" onkeydown="if(event.key==='Enter'){setYT('${id}')}">
+      <div style="display:flex;gap:4px;margin-top:3px">
+        <div style="font-size:9px;color:var(--ac);cursor:pointer;font-weight:700" onclick="setYT('${id}')">✓ OK</div>
+        <div style="font-size:9px;color:var(--t3);cursor:pointer" onclick="S.ytEditing=null;R()">✕</div>
+      </div>
+    </div>`;
+  }
   return `<div style="min-width:32px">
-    ${hasLink?
-      `<a href="${val}" target="_blank" style="color:var(--yt);font-size:16px;text-decoration:none" title="Ver video" onclick="event.stopPropagation()">▶</a>
-       <div style="font-size:9px;color:var(--t3);cursor:pointer" onclick="event.stopPropagation();S.ytLinks['${id}']='';R()">✕</div>`
-    : `<div class="ck" onclick="event.stopPropagation();promptYT('${id}')" title="Agregar link YouTube" style="font-size:11px;color:var(--yt);border-color:var(--yt)">▶</div>`
-    }
+    <div class="ck" onclick="event.stopPropagation();S.ytEditing='${id}';R()" title="Agregar link YouTube" style="font-size:11px;color:var(--yt);border-color:var(--yt)">▶</div>
   </div>`;
 }
 
@@ -773,22 +785,50 @@ function calcPace(eid){
 // ══════════════════════════════════════════════════════════
 // ACTIONS
 // ══════════════════════════════════════════════════════════
-function SC(c){S.cycle=''+c;R();}
-function TC(){S.collapse=!S.collapse;R();}
+function SC(c){S.cycle=''+c;saveState();R();}
+function TC(){S.collapse=!S.collapse;saveState();R();}
 function ST(t){S.tab=t;R();}
 function TO(id){S.open[id]=!S.open[id];R();}
-function TK(k){S.checks[k]=!S.checks[k];R();}
-function SV(k,v){S.vals[k]=v;}
+function TK(k){S.checks[k]=!S.checks[k];saveState();R();}
+function SV(k,v){S.vals[k]=v;saveState();}
 function setSens(id,e){
   const r=e.currentTarget.getBoundingClientRect();
   const x=e.clientX-r.left;
   S.sensations[id]=Math.max(1,Math.min(10,Math.round(x/r.width*10)));
-  R();
+  saveState();R();
 }
-function promptYT(id){
-  const url=prompt('Pega el link de YouTube:');
-  if(url){S.ytLinks[id]=url;R();}
+function setYT(id){
+  const inp=document.getElementById('yt-inp-'+id);
+  if(inp&&inp.value.length>3){S.ytLinks[id]=inp.value;}
+  S.ytEditing=null;
+  saveState();R();
 }
+
+// ══════════════════════════════════════════════════════════
+// LOCALSTORAGE PERSISTENCE
+// ══════════════════════════════════════════════════════════
+function saveState(){
+  try{
+    const toSave={cycle:S.cycle,collapse:S.collapse,checks:S.checks,vals:S.vals,ytLinks:S.ytLinks,sensations:S.sensations,history:S.history};
+    localStorage.setItem('gym-dashboard-state',JSON.stringify(toSave));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem('gym-dashboard-state');
+    if(raw){
+      const saved=JSON.parse(raw);
+      if(saved.cycle)S.cycle=saved.cycle;
+      if(saved.collapse!==undefined)S.collapse=saved.collapse;
+      if(saved.checks)S.checks=saved.checks;
+      if(saved.vals)S.vals=saved.vals;
+      if(saved.ytLinks)S.ytLinks=saved.ytLinks;
+      if(saved.sensations)S.sensations=saved.sensations;
+      if(saved.history)S.history=saved.history;
+    }
+  }catch(e){}
+}
+loadState();
 
 R();
 </script>
